@@ -25,7 +25,7 @@ module tb ();
 
   // Replace tt_um_example with your module name:
   // tt_um_example user_project (
-  tt_um_verilog_meetup_template_project_TODO user_project (
+  tt_um_Tbilisi_CORDIC_Engine user_project (
       .ui_in  (ui_in),    // Dedicated inputs
       .uo_out (uo_out),   // Dedicated outputs
       .uio_in (uio_in),   // IOs: Input path

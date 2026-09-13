@@ -62,146 +62,153 @@ module lab_top
        assign led        = '0;
     // assign abcdefgh   = '0;
     // assign digit      = '0;
-    // assign red        = '0;
-    // assign green      = '0;
-    // assign blue       = '0;
+       assign red        = '0;
+       assign green      = '0;
+       assign blue       = '0;
        assign sound      = '0;
        assign uart_tx    = '1;
 
     //------------------------------------------------------------------------
 
-    wire any_sw = | sw;
-
-    localparam w_in = w_key > w_sw ? w_key : w_sw;
-
-    wire [w_in - 1:0] in = any_sw ? w_in' (sw) : w_in' (key);
-
-    //------------------------------------------------------------------------
-
-    logic [19:0] cnt_e;
+    logic key_0_r;
 
     always_ff @ (posedge clk)
-        if (rst)
-            cnt_e <= '0;
-        else
-            cnt_e <= cnt_e + 1'd1;
+        if (rst) key_0_r <= 1'b0;
+        else     key_0_r <= key [0];
 
-    // 2 ** 20 = (2 ** 10) * (2 ** 10) = 1024 * 1024 = approximate 1000000.
-    // For 27 MHz clock:
-    // 27 MHz 27000000 / 2 ** 20 = 27 times a cnt_e overflows.
-
-    wire enable = (cnt_e == '0);
+    wire press_key_0 = ~ key_0_r & key [0];
 
     //------------------------------------------------------------------------
 
-    logic [w_x - 1:0] cnt1, cnt1_d;
-    logic [w_y - 1:0] cnt2, cnt2_d;
+    wire               start = press_key_0;
+    logic       [15:0] angle;
 
-    always_comb
+    wire               calc;
+    wire               finish;
+
+    wire signed [15:0] cos_out;
+    wire signed [15:0] sin_out;
+
+    cordic i_cordic
+    (
+        .clk     ( clk ),
+        .rst     ( rst ),
+
+        .start   ( start ),
+        .angle   ( angle ),
+
+        .calc    ( calc ),
+        .finish  ( finish ),
+
+        .cos_out ( cos_out ),
+        .sin_out ( sin_out )
+    );
+
+    //------------------------------------------------------------------------
+
+    localparam angle_array_index_width = 4,
+               angle_array_length      = 1 << angle_array_index_width;
+
+    `ifdef __ICARUS__
+        `define ICARUS_OR_YOSYS
+    `elsif YOSYS
+        `define ICARUS_OR_YOSYS
+    `endif
+
+    `ifdef ICARUS_OR_YOSYS
+
+        logic [15:0] angle_const_array [0:angle_array_length - 1];
+
+            assign angle_const_array [ 0] = 16'h0000; //  0 degrees
+            assign angle_const_array [ 1] = 16'h0444; //  6 degrees
+            assign angle_const_array [ 2] = 16'h0889; // 12 degrees
+            assign angle_const_array [ 3] = 16'h0ccd; // 18 degrees
+            assign angle_const_array [ 4] = 16'h1111; // 24 degrees
+            assign angle_const_array [ 5] = 16'h1555; // 30 degrees
+            assign angle_const_array [ 6] = 16'h199a; // 36 degrees
+            assign angle_const_array [ 7] = 16'h1dde; // 42 degrees
+            assign angle_const_array [ 8] = 16'h2222; // 48 degrees
+            assign angle_const_array [ 9] = 16'h2666; // 54 degrees
+            assign angle_const_array [10] = 16'h2aab; // 60 degrees
+            assign angle_const_array [11] = 16'h2eef; // 66 degrees
+            assign angle_const_array [12] = 16'h3333; // 72 degrees
+            assign angle_const_array [13] = 16'h3777; // 78 degrees
+            assign angle_const_array [14] = 16'h3bbc; // 84 degrees
+            assign angle_const_array [15] = 16'h4000; // 90 degrees
+
+    `else
+
+        // New SystemVerilog syntax for array assignment
+
+        wire [15:0] angle_const_array [0:angle_array_length - 1] =
+        '{
+            16'h0000, //  0 degrees
+            16'h0444, //  6 degrees
+            16'h0889, // 12 degrees
+            16'h0ccd, // 18 degrees
+            16'h1111, // 24 degrees
+            16'h1555, // 30 degrees
+            16'h199a, // 36 degrees
+            16'h1dde, // 42 degrees
+            16'h2222, // 48 degrees
+            16'h2666, // 54 degrees
+            16'h2aab, // 60 degrees
+            16'h2eef, // 66 degrees
+            16'h3333, // 72 degrees
+            16'h3777, // 78 degrees
+            16'h3bbc, // 84 degrees
+            16'h4000  // 90 degrees
+        };
+
+    `endif
+
+    //------------------------------------------------------------------------
+
+    wire [angle_array_index_width - 1:0] angle_index;
+    wire accept_start = start & ~calc;
+
+    counter_with_enable
+    # (angle_array_index_width)
+    i_counter
+    (
+        .clk    ( clk ),
+        .rst    ( rst ),
+        .enable ( accept_start ),
+        .cnt    ( angle_index )
+    );
+
+    assign angle = angle_const_array [angle_index];
+
+    //------------------------------------------------------------------------
+
+    logic [15:0] angle_sticky;
+    logic [15:0] sin_out_sticky;
+
+    always_ff @ (posedge clk)
     begin
-        cnt1_d = (cnt1 == w_x' (screen_width - 1)) ? '0 : cnt1 + 1'd1;
-
-        if (cnt2 == '0 | cnt2 == w_y' (screen_height - 1))
-            cnt2_d = w_y' (screen_height / 2);
+        if (rst)
+        begin
+            angle_sticky   <= '0;
+            sin_out_sticky <= '0;
+        end
         else
-            cnt2_d = cnt2 + w_y' (in [0]) - w_y' (| in [w_in - 1:1]);
+        begin
+            if (accept_start)
+                angle_sticky <= angle;
+
+            if (finish)
+                sin_out_sticky <= sin_out;
+        end
     end
 
-    //------------------------------------------------------------------------
-
-    always_ff @ (posedge clk)
-        if (rst)
-        begin
-            cnt1 <= '0;
-            cnt2 <= w_y' (screen_height / 2);
-        end
-        else if (enable)
-        begin
-            cnt1 <= cnt1_d;
-            cnt2 <= cnt2_d;
-        end
-
-    //------------------------------------------------------------------------
-
-    logic       note_vld;
-    logic [3:0] note_idx, sticky_note;
-
-      note_recognizer
-    # (.clk_mhz (clk_mhz))
-    i_note_recognizer
+    seven_segment_display # (w_digit) i_display
     (
         .clk,
         .rst,
-
-        .mic,
-
-        .note_vld,
-        .note_idx,
-
-        .abcdefgh
+        .number ({ angle_sticky, sin_out_sticky }),
+        .dots ('0),
+        .abcdefgh,
+        .digit
     );
-
-    assign digit = '1;
-
-    always_ff @ (posedge clk)
-        if (rst)
-            sticky_note <= '1;
-        else if (note_vld)
-            sticky_note <= note_idx;
-
-    //------------------------------------------------------------------------
-
-    // localparam w_xy = (w_x > w_y ? w_x : w_y) * 2;
-
-    always_comb
-    begin
-        red   = '0;
-        green = '0;
-        blue  = '0;
-
-        case (sticky_note)
-        4'd0, 4'd3, 4'd6, 4'd9:
-
-            if (x < cnt1)
-            begin
-                red   = w_red'   ((x + y) >> 3);
-                green = w_green' ((x - y) >> 3);
-                blue  = w_blue'  ( x      >> 3);
-            end
-
-        4'd1, 4'd4, 4'd7, 4'd10:
-
-            // if ((x - cnt1) * (y - cnt2) < w_xy' ((screen_width * screen_height) / 16))
-            if (y > cnt2)
-            begin
-                red   = w_red'   (x >> 3);
-                green = w_green' (y >> 3);
-                blue  = '1;
-            end
-
-        4'd2, 4'd5, 4'd8, 4'd11:
-
-            // if ((x - cnt1) ** 2 + (y - cnt2) ** 2 < w_xy' ((screen_width * screen_height) / 12))
-            if (x + y < cnt1 + cnt2)
-            begin
-                red   = '1;
-                green = '1;
-                blue  = w_blue' ((x + y) >> 3);
-            end
-
-        default:
-
-            begin
-                if (x < cnt1)
-                    red = '1;
-                else
-                    blue = '1;
-
-                if (y < cnt2)
-                    green = '1;
-            end
-
-        endcase
-    end
 
 endmodule

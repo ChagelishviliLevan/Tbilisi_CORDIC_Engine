@@ -9,22 +9,21 @@ SRC_DIR = $(PWD)/../src
 
 PROJECT_SOURCES =                         \
                                           \
+    cordic.sv                             \
+                                          \
+    counter_with_enable.sv                \
     strobe_gen.sv                         \
     seven_segment_display.sv              \
                                           \
     lab_top.sv                            \
-    note_recognizer.sv                    \
                                           \
     tm1638_registers.sv                   \
     tm1638_board.sv                       \
                                           \
     vga.sv                                \
-    inmp441_mic_i2s_receiver.sv           \
                                           \
     layer_between_project_and_lab_top.sv  \
     project.v                             \
-
-    # TODO: add SystemVerilog files if necessary
 
 ifneq ($(GATES),yes)
 

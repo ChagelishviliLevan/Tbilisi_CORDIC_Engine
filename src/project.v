@@ -5,7 +5,7 @@
 
 `default_nettype none
 
-module tt_um_verilog_meetup_template_project_TODO
+module tt_um_Tbilisi_CORDIC_Engine
 (
     input  [7:0] ui_in,    // Dedicated inputs
     output [7:0] uo_out,   // Dedicated outputs
@@ -35,11 +35,6 @@ module tt_um_verilog_meetup_template_project_TODO
     wire [1:0] vga_green;
     wire [1:0] vga_blue;
 
-    wire       mic_lr;
-    wire       mic_ws;
-    wire       mic_sck;
-    wire       mic_sd;
-
     wire       uart_rx;
 
     wire       sticky_failure;
@@ -61,15 +56,8 @@ module tt_um_verilog_meetup_template_project_TODO
 
     //------------------------------------------------------------------------
 
-    assign uio_oe  [2:0]  = '1;
-
-    assign uio_out [0]    = mic_lr;
-    assign uio_out [1]    = mic_ws;
-    assign uio_out [2]    = mic_sck;
-
-    assign uio_oe  [3]    = 1'b0;
-    assign uio_out [3]    = 1'b0;
-    assign mic_sd         = uio_in [3];
+    assign uio_oe  [3:0]  = '0;
+    assign uio_out [3:0]  = '0;
 
     assign uio_oe  [4]    = 1'b1;
     assign uio_out [4]    = sticky_failure;
@@ -97,6 +85,6 @@ module tt_um_verilog_meetup_template_project_TODO
     //------------------------------------------------------------------------
 
     // List all unused inputs to prevent warnings
-    wire _unused = & { ena, uio_in [7:6], uio_in [4], uio_in [2:0], 1'b0 };
+    wire _unused = & { ena, uio_in [7:6], uio_in [4], uio_in [3:0], 1'b0 };
 
 endmodule
